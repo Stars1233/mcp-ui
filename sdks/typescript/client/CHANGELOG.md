@@ -1,3 +1,10 @@
+## [6.1.1](https://github.com/MCP-UI-Org/mcp-ui/compare/client/v6.1.0...client/v6.1.1) (2026-03-12)
+
+
+### Bug Fixes
+
+* bump version for legacy removal ([#186](https://github.com/MCP-UI-Org/mcp-ui/issues/186)) ([0a75453](https://github.com/MCP-UI-Org/mcp-ui/commit/0a754533c92b6e9e317bda03383fc2c2745b37c7))
+
 # [6.1.0](https://github.com/MCP-UI-Org/mcp-ui/compare/client/v6.0.0...client/v6.1.0) (2026-02-13)
 
 
