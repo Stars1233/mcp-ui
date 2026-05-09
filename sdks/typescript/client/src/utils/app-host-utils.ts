@@ -7,7 +7,19 @@ import { type Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { type Tool } from '@modelcontextprotocol/sdk/types.js';
 const DEFAULT_SANDBOX_TIMEOUT_MS = 10000;
 
-export async function setupSandboxProxyIframe(sandboxProxyUrl: URL): Promise<{
+/**
+ * Assigned synchronously inside the onReady executor so callers can invoke
+ * `cancel()` while still awaiting `setupSandboxProxyIframe` or `onReady`.
+ * Cancelling clears timers and listeners and resolves `onReady`.
+ */
+export interface SandboxCancelRef {
+  cancel?: () => void;
+}
+
+export async function setupSandboxProxyIframe(
+  sandboxProxyUrl: URL,
+  cancelRef?: SandboxCancelRef,
+): Promise<{
   iframe: HTMLIFrameElement;
   onReady: Promise<void>;
 }> {
@@ -33,6 +45,17 @@ export async function setupSandboxProxyIframe(sandboxProxyUrl: URL): Promise<{
         reject(new Error('Timed out waiting for sandbox proxy iframe to be ready'));
       }
     }, DEFAULT_SANDBOX_TIMEOUT_MS);
+
+    if (cancelRef) {
+      cancelRef.cancel = () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeoutId);
+          cleanup();
+          resolve();
+        }
+      };
+    }
 
     const messageListener = (event: MessageEvent) => {
       if (event.source === iframe.contentWindow) {

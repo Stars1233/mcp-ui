@@ -10,7 +10,7 @@ import {
   type McpUiAppCapabilities,
 } from '@modelcontextprotocol/ext-apps/app-bridge';
 
-import { setupSandboxProxyIframe } from '../utils/app-host-utils';
+import { setupSandboxProxyIframe, type SandboxCancelRef } from '../utils/app-host-utils';
 
 /**
  * Build sandbox URL with CSP query parameter for HTTP header-based CSP enforcement.
@@ -165,6 +165,11 @@ export const AppFrame = (props: AppFrameProps) => {
     setError(null);
 
     let mounted = true;
+    // cancelRef is populated synchronously inside setupSandboxProxyIframe's Promise
+    // constructor, before any async yield. This guarantees it is set by the time
+    // React Strict Mode fires the effect cleanup — allowing the orphaned timeout
+    // to be cleared even when cleanup runs before the awaited result resolves.
+    const cancelRef: SandboxCancelRef = {};
 
     const setup = async () => {
       try {
@@ -176,7 +181,7 @@ export const AppFrame = (props: AppFrameProps) => {
           currentAppBridgeRef.current = null;
         }
 
-        const { iframe, onReady } = await setupSandboxProxyIframe(sandboxUrl);
+        const { iframe, onReady } = await setupSandboxProxyIframe(sandboxUrl, cancelRef);
 
         if (!mounted) return;
 
@@ -237,6 +242,7 @@ export const AppFrame = (props: AppFrameProps) => {
 
     return () => {
       mounted = false;
+      cancelRef.cancel?.();
     };
   }, [sandbox.url, sandbox.csp, appBridge]);
 

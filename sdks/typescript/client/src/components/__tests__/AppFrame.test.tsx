@@ -119,7 +119,10 @@ describe('<AppFrame />', () => {
     render(<AppFrame {...getPropsWithBridge()} />);
 
     await waitFor(() => {
-      expect(appHostUtils.setupSandboxProxyIframe).toHaveBeenCalledWith(defaultProps.sandbox.url);
+      expect(appHostUtils.setupSandboxProxyIframe).toHaveBeenCalledWith(
+        defaultProps.sandbox.url,
+        expect.any(Object),
+      );
     });
   });
 
@@ -279,6 +282,39 @@ describe('<AppFrame />', () => {
   });
 
   describe('lifecycle', () => {
+    it('should cancel sandbox timeout when effect cleanup fires before await resolves (StrictMode)', async () => {
+      // Simulate the cancelRef being populated synchronously (as the real impl does).
+      // Capture the cancelRef passed to setupSandboxProxyIframe and verify cancel() is
+      // called before the mock ever resolves — this is the Strict Mode timing scenario.
+      let capturedCancelRef: { cancel?: () => void } | undefined;
+      const cancelSpy = vi.fn();
+
+      vi.mocked(appHostUtils.setupSandboxProxyIframe).mockImplementation(
+        async (_url, cancelRef) => {
+          capturedCancelRef = cancelRef;
+          // Synchronously populate the cancelRef, mirroring the real implementation
+          if (cancelRef) {
+            cancelRef.cancel = cancelSpy;
+          }
+          // Return a promise that never resolves, simulating a slow sandbox
+          return new Promise(() => {});
+        },
+      );
+
+      const { unmount } = render(<AppFrame {...getPropsWithBridge()} />);
+
+      // Flush microtasks so the mock implementation runs
+      await act(async () => {});
+
+      expect(capturedCancelRef).toBeDefined();
+
+      // Unmount (simulates Strict Mode cleanup between effect invocations)
+      unmount();
+
+      // cancel() must have been called to clear the orphaned timeout
+      expect(cancelSpy).toHaveBeenCalledTimes(1);
+    });
+
     it('should preserve iframe across re-renders', async () => {
       const { rerender } = render(<AppFrame {...getPropsWithBridge()} />);
 
@@ -329,7 +365,10 @@ describe('<AppFrame />', () => {
       // Should call setupSandboxProxyIframe again with new URL
       await waitFor(() => {
         expect(appHostUtils.setupSandboxProxyIframe).toHaveBeenCalledTimes(2);
-        expect(appHostUtils.setupSandboxProxyIframe).toHaveBeenLastCalledWith(newSandboxUrl);
+        expect(appHostUtils.setupSandboxProxyIframe).toHaveBeenLastCalledWith(
+          newSandboxUrl,
+          expect.any(Object),
+        );
       });
     });
 
